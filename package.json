@@ -1,0 +1,13 @@
+{
+  "name": "fastlink-whatsapp-bridge",
+  "version": "1.0.0",
+  "description": "Bridge between WhatsApp Business Cloud API and Fastlink SalesDesk (Firebase)",
+  "main": "server.js",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
