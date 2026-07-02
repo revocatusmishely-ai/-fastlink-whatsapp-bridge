@@ -18,6 +18,16 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
+// Allow browser-based tools to call this server (CORS)
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
+
 // ---- Config (from environment variables) ----
 const PORT           = process.env.PORT || 3000;
 const VERIFY_TOKEN   = process.env.VERIFY_TOKEN   || 'fastlink_verify';        // you choose this; paste same value in Meta
@@ -176,6 +186,32 @@ async function processOutbound() {
   }
 }
 setInterval(processOutbound, POLL_MS);
+
+
+// =====================================================================
+// TEST ENDPOINT — open /test-inject in a browser to simulate an incoming
+// WhatsApp message. Proves the server->Firebase->app pipeline end to end.
+// =====================================================================
+app.get('/test-inject', async (req, res) => {
+  const id = 'RQ' + Date.now();
+  const nowMs = Date.now();
+  const record = {
+    id, source: 'whatsapp',
+    waNumber: '+255742221911',
+    waName: 'Bridge Test',
+    message: 'TEST booking request: 2 tickets DAR-JRO (injected at ' + new Date().toISOString() + ')',
+    route: '', dates: '', pax: 1, station: '',
+    status: 'new', assignedTo: null, assignedToName: '',
+    createdAt: nowMs, unread: true,
+    thread: [{ from: 'client', text: 'TEST booking request: 2 tickets DAR-JRO', at: nowMs, via: 'whatsapp' }]
+  };
+  try {
+    await fbPut(`reservationRequests/${id}`, record);
+    res.send('SUCCESS - Test request ' + id + ' written to Firebase.\n\nNow check:\n1) SalesDesk -> Reservations: a "Bridge Test" card should appear\n2) ' + FB_URL + '/reservationRequests.json should no longer be null\n\nIf you can see the card, the server + Firebase + app all work, and the remaining problem is ONLY Meta webhook delivery (publish the app / WABA subscription).');
+  } catch (e) {
+    res.send('FIREBASE WRITE FAILED: ' + e.message + '\n\nThis means the server cannot write to your database. Most likely the Firebase rules are blocking writes. Check the Rules tab in Firebase console: {".read": true, ".write": true} and Publish.');
+  }
+});
 
 // ---- Health check ----
 app.get('/', (req, res) => res.send('Fastlink WhatsApp bridge is running. Webhook at /webhook'));
